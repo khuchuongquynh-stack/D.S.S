@@ -1,0 +1,1166 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Drawing School Supplies (D.S.S)</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #f4f4f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            position: relative; 
+            user-select: none;
+        }
+        
+        /* --- NGÔN NGỮ (LANGUAGE SELECTOR) --- */
+        #lang-container {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: white;
+            padding: 5px 10px;
+            border: 2px solid #333;
+            border-radius: 20px;
+            box-shadow: 2px 2px 0 #333;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        #lang-select {
+            border: none;
+            outline: none;
+            font-size: 14px;
+            font-weight: bold;
+            background: transparent;
+            cursor: pointer;
+            color: #333;
+            max-width: 150px;
+        }
+
+        /* --- BẢNG VẼ (BÊN TRÁI) --- */
+        #left-panel {
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            width: 40%;
+            min-width: 320px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            border-right: 4px solid #333;
+            z-index: 10;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        #left-panel.hidden {
+            transform: translateX(-100%);
+            border-right: none; 
+        }
+        
+        #draw-ui {
+            padding: 15px;
+            background: #fdfdfd;
+            border-bottom: 2px dashed #ccc;
+            position: relative;
+            padding-right: 50px;
+            padding-top: 40px;
+        }
+        #draw-ui h3 { margin: 0 0 5px 0; color: #333; }
+        #draw-ui p { margin: 0 0 10px 0; font-size: 13px; color: #666; }
+        .stroke-counter { 
+            font-size: 24px; font-weight: bold; color: #e74c3c; margin-bottom: 10px; transition: color 0.2s;
+        }
+        .btn-group { display: flex; gap: 10px; }
+        button {
+            padding: 12px; font-size: 15px; font-weight: bold; cursor: pointer;
+            border: 2px solid #333; border-radius: 8px; box-shadow: 3px 3px 0 #333; transition: all 0.1s;
+        }
+        button:active { transform: translate(3px, 3px); box-shadow: 0 0 0 #333; }
+        button:disabled { background-color: #ddd; color: #999; cursor: not-allowed; border-color: #999; box-shadow: 3px 3px 0 #999; }
+        #btn-clear { background-color: #e74c3c; color: white; flex: 1; }
+        #btn-start { background-color: #2ecc71; color: white; flex: 2; }
+        
+        #btn-close-panel {
+            position: absolute; top: 45px; right: 15px; width: 36px; height: 36px; padding: 0;
+            font-size: 18px; background-color: #ff6b6b; color: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; box-shadow: 2px 2px 0 #333; line-height: 1;
+        }
+
+        #btn-open-panel {
+            position: absolute; top: 60px; left: 20px; padding: 10px 15px; font-size: 15px;
+            background-color: #3498db; color: white; border-radius: 50px; z-index: 100;
+            display: none; align-items: center; gap: 8px;
+        }
+        #btn-open-panel.show { display: flex; }
+
+        #draw-canvas-container { flex: 1; position: relative; background: #fdfdfd; overflow: hidden; }
+        #drawCanvas { position: absolute; top: 0; left: 0; display: block; touch-action: none; cursor: crosshair;}
+
+        /* --- ĐẤU TRƯỜNG (BÊN PHẢI) --- */
+        #right-panel {
+            position: absolute;
+            top: 0; bottom: 0; right: 0;
+            left: max(40%, 320px); 
+            background: #fdfdfd;
+            transition: left 0.3s ease;
+            z-index: 1;
+        }
+        #left-panel.hidden ~ #right-panel { left: 0; }
+
+        #gameCanvas { display: block; }
+        
+        #game-ui {
+            position: absolute; top: 60px; right: 20px; pointer-events: none; z-index: 5; text-align: right;
+        }
+        .hp-bar {
+            width: 250px; height: 22px; background-color: #eee; border: 2px solid #333;
+            border-radius: 11px; overflow: hidden; margin-bottom: 8px; box-shadow: 2px 2px 0 #333; margin-left: auto;
+        }
+        .hp-fill { height: 100%; background-color: #e74c3c; width: 100%; transition: width 0.1s; }
+        #stats { font-size: 18px; font-weight: bold; color: #333; text-shadow: 1px 1px 0 #fff; }
+        
+        #skills {
+            margin-top: 10px; font-size: 14px; font-weight: bold; color: #333;
+            background: rgba(255,255,255,0.9); padding: 10px; border-radius: 8px;
+            border: 2px solid #333; box-shadow: 2px 2px 0 #333; text-align: left;
+        }
+        #skills div { margin-bottom: 5px; }
+        #skills div:last-child { margin-bottom: 0; }
+        .skill-ready { color: #2ecc71; }
+        .skill-cooldown { color: #e74c3c; }
+
+        #game-over {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; background: white; padding: 30px; border: 3px solid #333;
+            border-radius: 15px; box-shadow: 5px 5px 0 #333; display: none; z-index: 10;
+        }
+        #game-over h2 { margin: 0 0 10px 0; color: #e74c3c; }
+        #game-over p { margin: 0; color: #333; font-weight: bold;}
+
+        /* --- GIAO DIỆN MOBILE (JOYSTICK & NÚT BẤM) --- */
+        #mobile-controls { display: none; }
+        
+        @media (max-width: 900px) or (pointer: coarse) {
+            #left-panel { width: 100%; min-width: 100%; border-right: none; }
+            #right-panel { left: 0; }
+            #controls-hint { display: none !important; }
+            #game-ui { top: 20px; }
+            #btn-close-panel { top: 15px; }
+            
+            #mobile-controls {
+                display: block; position: absolute; bottom: 0; left: 0; right: 0; height: 150px;
+                pointer-events: none; z-index: 100;
+            }
+
+            /* Joystick */
+            #joystick-zone {
+                position: absolute; bottom: 20px; left: 20px; width: 120px; height: 120px;
+                background: rgba(0,0,0,0.1); border-radius: 50%; pointer-events: auto;
+                border: 2px solid rgba(0,0,0,0.2); touch-action: none;
+            }
+            #joystick-knob {
+                position: absolute; top: 50%; left: 50%; width: 50px; height: 50px;
+                background: rgba(0,0,0,0.4); border-radius: 50%; transform: translate(-50%, -50%);
+                pointer-events: none;
+            }
+
+            /* Skill Buttons */
+            .mobile-skill-btn {
+                position: absolute; bottom: 20px; width: 65px; height: 65px; border-radius: 50%;
+                background: rgba(255,255,255,0.9); border: 2px solid #333; font-weight: bold; font-size: 16px;
+                pointer-events: auto; display: flex; flex-direction: column; justify-content: center; align-items: center;
+                box-shadow: 2px 2px 0 #333; user-select: none;
+            }
+            .mobile-skill-btn:active { transform: translate(2px, 2px); box-shadow: 0 0 0 #333; }
+            .mobile-skill-btn .cd-text { font-size: 10px; color: #e74c3c; margin-top: 2px;}
+            
+            #btn-e { right: 170px; background: #f1c40f; color: #333;}
+            #btn-t { right: 95px; background: #ecf0f1; color: #333;}
+            #btn-z { right: 20px; background: #3498db; color: white;}
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Thanh chọn ngôn ngữ (25 ngôn ngữ) -->
+    <div id="lang-container">
+        🌐 <select id="lang-select">
+            <option value="vi">Tiếng Việt</option>
+            <option value="en">English</option>
+            <option value="th">ไทย (Thái Lan)</option>
+            <option value="id">Bahasa Indonesia</option>
+            <option value="ms">Bahasa Melayu</option>
+            <option value="tl">Filipino</option>
+            <option value="my">မြန်မာဘာသာ (Myanmar)</option>
+            <option value="km">ភាសាខ្មែរ (Khmer)</option>
+            <option value="lo">ພາສາລາວ (Lào)</option>
+            <option value="ta">தமிழ் (Tamil)</option>
+            <option value="zh">中文</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="fr">Français</option>
+            <option value="ru">Русский</option>
+            <option value="es">Español</option>
+            <option value="de">Deutsch</option>
+            <option value="pt">Português</option>
+            <option value="it">Italiano</option>
+            <option value="ar">العربية</option>
+            <option value="hi">हिन्दी</option>
+            <option value="nl">Nederlands</option>
+            <option value="tr">Türkçe</option>
+            <option value="pl">Polski</option>
+            <option value="sv">Svenska</option>
+        </select>
+    </div>
+
+    <div id="left-panel">
+        <div id="draw-ui">
+            <button id="btn-close-panel" title="Đóng bảng vẽ">✕</button>
+            <h3>D.S.S - <span data-i18n="draw_title"></span></h3>
+            <p data-i18n="draw_desc"></p>
+            <div class="stroke-counter" id="stroke-count">0 / 100</div>
+            <div class="btn-group">
+                <button id="btn-clear" data-i18n="btn_clear"></button>
+                <button id="btn-start" disabled data-i18n="btn_start"></button>
+            </div>
+        </div>
+        <div id="draw-canvas-container">
+            <canvas id="drawCanvas"></canvas>
+        </div>
+    </div>
+
+    <button id="btn-open-panel" title="Mở bảng vẽ">✏️ <span data-i18n="btn_draw"></span></button>
+
+    <div id="right-panel">
+        <div id="game-ui">
+            <div class="hp-bar"><div class="hp-fill" id="hp-fill"></div></div>
+            <div id="stats"><span data-i18n="hp"></span>: 0 / 0</div>
+            
+            <div id="skills">
+                <div>🖍️ <b data-i18n="skill_pencil"></b> <span id="pencil-count" style="color:#f1c40f">2</span>/2 
+                    | <span id="pencil-cd" class="skill-ready"></span></div>
+                <div>🔪 <b data-i18n="skill_sword"></b> <span id="sword-cd" class="skill-ready"></span></div>
+                <div>📏 <b data-i18n="skill_ruler"></b> <span id="ruler-cd" class="skill-ready"></span></div>
+            </div>
+            <div id="controls-hint" style="font-size: 13px; color: #555; margin-top: 8px; font-weight: bold; background: rgba(255,255,255,0.8); padding: 5px; border-radius: 5px; display: inline-block; text-align: left;">
+                <span data-i18n="hint_move"></span><br>
+                <span data-i18n="hint_pencil"></span><br>
+                <span data-i18n="hint_sword"></span><br>
+                <span data-i18n="hint_ruler"></span><br>
+                <span style="color:#e74c3c" data-i18n="hint_damage"></span>
+            </div>
+        </div>
+        
+        <div id="game-over">
+            <h2 data-i18n="over_title"></h2>
+            <p data-i18n="over_desc"></p>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- Giao diện điều khiển cảm ứng cho Mobile -->
+    <div id="mobile-controls">
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
+        <div class="mobile-skill-btn" id="btn-e">E<div class="cd-text" id="m-e-cd"></div></div>
+        <div class="mobile-skill-btn" id="btn-t">T<div class="cd-text" id="m-t-cd"></div></div>
+        <div class="mobile-skill-btn" id="btn-z">Z<div class="cd-text" id="m-z-cd"></div></div>
+    </div>
+
+    <script>
+        // --- HỆ THỐNG 25 NGÔN NGỮ (LOCALIZATION ENGINE) ---
+        const translations = {
+            vi: { draw_title: "Bảng Vẽ Nhân Vật", draw_desc: "Mỗi nét vẽ = 1 Máu. Tối đa 100 nét.", btn_clear: "Xóa Hết", btn_start: "Bắt Đầu / Cập Nhật", btn_draw: "Vẽ", hp: "Máu", strokes: "Số nét", skill_pencil: "Bút Chì (E):", skill_sword: "Dao dọc giấy (T):", skill_ruler: "Khiên Thước Kẻ (Z):", ready: "Sẵn sàng", cooldown: "Hồi chiêu", out_of_pencils: "Hết bút chì", hint_move: "WASD / Mũi tên: Di chuyển", hint_pencil: "E: Tô lại nét đã mất", hint_sword: "T: Vung dao chém tẩy", hint_ruler: "Z: Bật khiên thước kẻ", hint_damage: "*Trên 50 máu: Trúng đòn mất 10 nét!", over_title: "Bạn Đã Bị Xóa Sổ!", over_desc: "Hãy vẽ lại nhân vật mới và bấm 'Bắt Đầu'", idle_hint_1: "Hãy vẽ nhân vật ở bảng bên trái", idle_hint_2: "và bấm Bắt Đầu!" },
+            en: { draw_title: "Character Drawing Board", draw_desc: "Each stroke = 1 HP. Max 100 strokes.", btn_clear: "Clear All", btn_start: "Start / Update", btn_draw: "Draw", hp: "HP", strokes: "Strokes", skill_pencil: "Pencil (E):", skill_sword: "Utility Knife (T):", skill_ruler: "Ruler Shield (Z):", ready: "Ready", cooldown: "Cooldown", out_of_pencils: "Out of pencils", hint_move: "WASD / Arrows: Move", hint_pencil: "E: Restore lost stroke", hint_sword: "T: Swing knife", hint_ruler: "Z: Activate ruler shield", hint_damage: "*Over 50 HP: Hit loses 10 strokes!", over_title: "You've Been Erased!", over_desc: "Draw a new character and press 'Start'", idle_hint_1: "Draw your character on the left panel", idle_hint_2: "and press Start!" },
+            th: { draw_title: "กระดานวาดตัวละคร", draw_desc: "1 เส้น = 1 HP สูงสุด 100 เส้น", btn_clear: "ลบทั้งหมด", btn_start: "เริ่ม / อัปเดต", btn_draw: "วาด", hp: "HP", strokes: "เส้น", skill_pencil: "ดินสอ (E):", skill_sword: "มีดคัตเตอร์ (T):", skill_ruler: "โล่ไม้บรรทัด (Z):", ready: "พร้อม", cooldown: "คูลดาวน์", out_of_pencils: "ดินสอหมด", hint_move: "WASD / ลูกศร: เคลื่อนที่", hint_pencil: "E: วาดเส้นที่หายไปคืน", hint_sword: "T: ฟันมีด", hint_ruler: "Z: เปิดโล่ไม้บรรทัด", hint_damage: "*HP เกิน 50: โดนตีจะเสีย 10 เส้น!", over_title: "คุณถูกลบแล้ว!", over_desc: "วาดตัวละครใหม่และกด 'เริ่ม'", idle_hint_1: "วาดตัวละครของคุณที่แผงด้านซ้าย", idle_hint_2: "แล้วกดเริ่ม!" },
+            id: { draw_title: "Papan Gambar Karakter", draw_desc: "1 goresan = 1 HP. Maks 100 goresan.", btn_clear: "Hapus Semua", btn_start: "Mulai / Perbarui", btn_draw: "Gambar", hp: "HP", strokes: "Goresan", skill_pencil: "Pensil (E):", skill_sword: "Pisau Cutter (T):", skill_ruler: "Perisai Penggaris (Z):", ready: "Siap", cooldown: "Cooldown", out_of_pencils: "Pensil habis", hint_move: "WASD / Panah: Bergerak", hint_pencil: "E: Pulihkan goresan", hint_sword: "T: Ayunkan pisau", hint_ruler: "Z: Aktifkan perisai", hint_damage: "*Lebih dari 50 HP: Terkena serangan kehilangan 10 goresan!", over_title: "Anda Telah Dihapus!", over_desc: "Gambar karakter baru dan tekan 'Mulai'", idle_hint_1: "Gambar karakter Anda di panel kiri", idle_hint_2: "dan tekan Mulai!" },
+            ms: { draw_title: "Papan Lukisan Watak", draw_desc: "1 sapuan = 1 HP. Maks 100 sapuan.", btn_clear: "Padam Semua", btn_start: "Mula / Kemas Kini", btn_draw: "Lukis", hp: "HP", strokes: "Sapuan", skill_pencil: "Pensel (E):", skill_sword: "Pisau Pemotong (T):", skill_ruler: "Perisai Pembaris (Z):", ready: "Sedia", cooldown: "Masa Menunggu", out_of_pencils: "Pensel habis", hint_move: "WASD / Anak Panah: Bergerak", hint_pencil: "E: Pulihkan sapuan", hint_sword: "T: Hayun pisau", hint_ruler: "Z: Aktifkan perisai", hint_damage: "*Lebih 50 HP: Diserang hilang 10 sapuan!", over_title: "Anda Telah Dipadam!", over_desc: "Lukis watak baharu dan tekan 'Mula'", idle_hint_1: "Lukis watak anda di panel kiri", idle_hint_2: "dan tekan Mula!" },
+            tl: { draw_title: "Board ng Pagguhit ng Character", draw_desc: "1 stroke = 1 HP. Max 100 strokes.", btn_clear: "Burahin Lahat", btn_start: "Simulan / I-update", btn_draw: "Gumuhit", hp: "HP", strokes: "Stroke", skill_pencil: "Lapis (E):", skill_sword: "Cutter (T):", skill_ruler: "Kalasag na Ruler (Z):", ready: "Handa na", cooldown: "Cooldown", out_of_pencils: "Wala nang lapis", hint_move: "WASD / Arrow: Gumalaw", hint_pencil: "E: Ibalik ang stroke", hint_sword: "T: Iwagayway ang cutter", hint_ruler: "Z: I-activate ang kalasag", hint_damage: "*Higit 50 HP: Pag natamaan, bawas 10 stroke!", over_title: "Nabura Ka Na!", over_desc: "Gumuhit ng bagong character at pindutin ang 'Simulan'", idle_hint_1: "Gumuhit ng character sa kaliwang panel", idle_hint_2: "at pindutin ang Simulan!" },
+            my: { draw_title: "ဇာတ်ကောင်ပုံဆွဲဘုတ်", draw_desc: "၁ ကြောင်း = ၁ HP။ အများဆုံး ၁၀၀ ကြောင်း။", btn_clear: "အားလုံးဖျက်မည်", btn_start: "စတင်မည် / အပ်ဒိတ်လုပ်မည်", btn_draw: "ဆွဲမည်", hp: "HP", strokes: "ကြောင်းများ", skill_pencil: "ခဲတံ (E):", skill_sword: "ဓားလွတ် (T):", skill_ruler: "ပေတံဒိုင်း (Z):", ready: "အသင့်ရှိပါသည်", cooldown: "အေးချိန်", out_of_pencils: "ခဲတံကုန်သွားပါပြီ", hint_move: "WASD / မြှားခလုတ်: ရွှေ့ရန်", hint_pencil: "E: ပျောက်သွားသောကြောင်းကို ပြန်ဆွဲရန်", hint_sword: "T: ဓားလွတ်ဖြင့် ခုတ်ရန်", hint_ruler: "Z: ပေတံဒိုင်းကို ဖွင့်ရန်", hint_damage: "*HP 50 အထက် - ထိခိုက်ပါက ကြောင်း ၁၀ ကြောင်းဆုံးရှုံးမည်!", over_title: "သင့်ကို ဖျက်ပစ်လိုက်ပါပြီ!", over_desc: "ဇာတ်ကောင်အသစ်ဆွဲပြီး 'စတင်မည်' ကိုနှိပ်ပါ", idle_hint_1: "ဘယ်ဘက်အကန့်တွင် ဇာတ်ကောင်ဆွဲပါ", idle_hint_2: "ပြီးလျှင် စတင်မည်ကို နှိပ်ပါ!" },
+            km: { draw_title: "ក្តារគូរតួអង្គ", draw_desc: "១ បន្ទាត់ = ១ HP។ អតិបរមា ១០០ បន្ទាត់។", btn_clear: "លុបទាំងអស់", btn_start: "ចាប់ផ្តើម / ធ្វើបច្ចុប្បន្នភាព", btn_draw: "គូរ", hp: "HP", strokes: "បន្ទាត់", skill_pencil: "ខ្មៅដៃ (E):", skill_sword: "កាំបិតកាត់ (T):", skill_ruler: "ខែលបន្ទាត់ (Z):", ready: "រួចរាល់", cooldown: "ពេលរង់ចាំ", out_of_pencils: "អស់ខ្មៅដៃ", hint_move: "WASD / ព្រួញ: ផ្លាស់ទី", hint_pencil: "E: គូរបន្ទាត់ដែលបាត់ឡើងវិញ", hint_sword: "T: វាយកាំបិត", hint_ruler: "Z: បើកខែលបន្ទាត់", hint_damage: "*លើសពី 50 HP: ប្រសិនបើត្រូវវាយ នឹងបាត់បង់ ១០ បន្ទាត់!", over_title: "អ្នកត្រូវបានលុបចោលហើយ!", over_desc: "គូរតួអង្គថ្មី ហើយចុច 'ចាប់ផ្តើម'", idle_hint_1: "គូរតួអង្គរបស់អ្នកនៅផ្នែកខាងឆ្វេង", idle_hint_2: "ហើយចុចចាប់ផ្តើម!" },
+            lo: { draw_title: "ກະດານແຕ້ມຕົວລະຄອນ", draw_desc: "1 ເສັ້ນ = 1 HP. ສູງສຸດ 100 ເສັ້ນ.", btn_clear: "ລຶບທັງໝົດ", btn_start: "ເລີ່ມ / ອັບເດດ", btn_draw: "ແຕ້ມ", hp: "HP", strokes: "ເສັ້ນ", skill_pencil: "ສໍ (E):", skill_sword: "ມີດຕັດ (T):", skill_ruler: "ໄສ້ຕົວຫຼຽວ (Z):", ready: "ພ້ອມແລ້ວ", cooldown: "ຄູນດາວ", out_of_pencils: "ສໍໝົດ", hint_move: "WASD / ລູກສອນ: ເຄື່ອນຍ້າຍ", hint_pencil: "E: ແຕ້ມເສັ້ນທີ່ຫາຍໄປຄືນ", hint_sword: "T: ຟັນມີດ", hint_ruler: "Z: ເປີດໄສ້ຕົວຫຼຽວ", hint_damage: "*HP ເກີນ 50: ຖ້າຖືກຕີຈະເສຍ 10 ເສັ້ນ!", over_title: "ເຈົ້າຖືກລຶບແລ້ວ!", over_desc: "ແຕ້ມຕົວລະຄອນໃໝ່ ແລ້ວກົດ 'ເລີ່ມ'", idle_hint_1: "ແຕ້ມຕົວລະຄອນຢູ່ດ້ານຊ້າຍ", idle_hint_2: "ແລ້ວກົດເລີ່ມ!" },
+            ta: { draw_title: "கதாபாத்திர வரைவு பலகை", draw_desc: "1 கோடு = 1 HP. அதிகபட்சம் 100 கோடுகள்.", btn_clear: "அனைத்தையும் அழி", btn_start: "தொடங்கு / புதுப்பி", btn_draw: "வரை", hp: "HP", strokes: "கோடுகள்", skill_pencil: "பென்சில் (E):", skill_sword: "கத்தி (T):", skill_ruler: "அளவுகோல் கேடயம் (Z):", ready: "தயார்", cooldown: "குளிர்வு", out_of_pencils: "பென்சில் தீர்ந்தது", hint_move: "WASD / அம்புகள்: நகர்த்து", hint_pencil: "E: இழந்த கோட்டை மீட்டெடு", hint_sword: "T: கத்தியை வீசு", hint_ruler: "Z: அளவுகோல் கேடயத்தை இயக்கு", hint_damage: "*50 HP க்கு மேல்: தாக்கப்பட்டால் 10 கோடுகள் இழப்பீர்கள்!", over_title: "நீங்கள் அழிக்கப்பட்டீர்கள்!", over_desc: "புதிய கதாபாத்திரத்தை வரைந்து 'தொடங்கு' என்பதை அழுத்தவும்", idle_hint_1: "இடது பேனலில் உங்கள் கதாபாத்திரத்தை வரையவும்", idle_hint_2: "பின்னர் தொடங்கு என்பதை அழுத்தவும்!" },
+            zh: { draw_title: "角色画板", draw_desc: "每笔画 = 1 生命值。最多 100 笔画。", btn_clear: "全部清除", btn_start: "开始 / 更新", btn_draw: "画画", hp: "生命", strokes: "笔画", skill_pencil: "铅笔 (E):", skill_sword: "美工刀 (T):", skill_ruler: "直尺盾牌 (Z):", ready: "准备就绪", cooldown: "冷却中", out_of_pencils: "没有铅笔了", hint_move: "WASD / 方向键: 移动", hint_pencil: "E: 恢复失去的笔画", hint_sword: "T: 挥刀斩击", hint_ruler: "Z: 激活直尺盾牌", hint_damage: "*生命值>50时: 受击失去10笔画!", over_title: "你被擦除了！", over_desc: "画一个新角色并点击 '开始'", idle_hint_1: "在左侧画板画出你的角色", idle_hint_2: "并点击开始！" },
+            ja: { draw_title: "キャラクター描画ボード", draw_desc: "1ストローク＝1HP。最大100ストローク。", btn_clear: "すべて消去", btn_start: "スタート/更新", btn_draw: "描く", hp: "HP", strokes: "ストローク", skill_pencil: "鉛筆 (E):", skill_sword: "カッター (T):", skill_ruler: "定規シールド (Z):", ready: "準備完了", cooldown: "クールダウン", out_of_pencils: "鉛筆切れ", hint_move: "WASD / 矢印キー: 移動", hint_pencil: "E: 失ったストロークを復元", hint_sword: "T: ナイフを振る", hint_ruler: "Z: 定規シールド起動", hint_damage: "*HP50超: 被弾で10ストローク減!", over_title: "消去されました！", over_desc: "新しいキャラクターを描いて「スタート」を押してください", idle_hint_1: "左のパネルにキャラクターを描いて", idle_hint_2: "スタートを押してください！" },
+            ko: { draw_title: "캐릭터 그리기 보드", draw_desc: "선 1개 = HP 1. 최대 100개.", btn_clear: "모두 지우기", btn_start: "시작 / 업데이트", btn_draw: "그리기", hp: "HP", strokes: "선 개수", skill_pencil: "연필 (E):", skill_sword: "커터칼 (T):", skill_ruler: "자 방패 (Z):", ready: "준비 완료", cooldown: "재사용 대기시간", out_of_pencils: "연필 없음", hint_move: "WASD / 방향키: 이동", hint_pencil: "E: 잃어버린 선 복구", hint_sword: "T: 칼 휘두르기", hint_ruler: "Z: 자 방패 활성화", hint_damage: "*HP 50 초과: 피격 시 선 10개 감소!", over_title: "지워졌습니다!", over_desc: "새 캐릭터를 그리고 '시작'을 누르세요", idle_hint_1: "왼쪽 패널에 캐릭터를 그리고", idle_hint_2: "시작을 누르세요!" },
+            fr: { draw_title: "Tableau de Dessin", draw_desc: "Chaque trait = 1 PV. Max 100 traits.", btn_clear: "Tout Effacer", btn_start: "Démarrer / Mettre à jour", btn_draw: "Dessiner", hp: "PV", strokes: "Traits", skill_pencil: "Crayon (E):", skill_sword: "Cutter (T):", skill_ruler: "Bouclier Règle (Z):", ready: "Prêt", cooldown: "Recharge", out_of_pencils: "Plus de crayons", hint_move: "WASD / Flèches : Déplacer", hint_pencil: "E : Restaurer un trait", hint_sword: "T : Coup de couteau", hint_ruler: "Z : Activer le bouclier", hint_damage: "*Plus de 50 PV : Perd 10 traits !", over_title: "Vous Avez Été Effacé !", over_desc: "Dessinez un nouveau personnage et appuyez sur 'Démarrer'", idle_hint_1: "Dessinez votre personnage à gauche", idle_hint_2: "et appuyez sur Démarrer !" },
+            ru: { draw_title: "Доска для Рисования", draw_desc: "Каждый штрих = 1 HP. Макс 100 штрихов.", btn_clear: "Очистить", btn_start: "Старт / Обновить", btn_draw: "Рисовать", hp: "HP", strokes: "Штрихи", skill_pencil: "Карандаш (E):", skill_sword: "Канцелярский нож (T):", skill_ruler: "Щит-Линейка (Z):", ready: "Готово", cooldown: "Перезарядка", out_of_pencils: "Нет карандашей", hint_move: "WASD / Стрелки: Движение", hint_pencil: "E: Восстановить штрих", hint_sword: "T: Удар ножом", hint_ruler: "Z: Включить щит", hint_damage: "*Больше 50 HP: Удар отнимает 10 штрихов!", over_title: "Вас Стерли!", over_desc: "Нарисуйте нового персонажа и нажмите 'Старт'", idle_hint_1: "Нарисуйте персонажа слева", idle_hint_2: "и нажмите Старт!" },
+            es: { draw_title: "Tablero de Dibujo", draw_desc: "Cada trazo = 1 HP. Máx 100 trazos.", btn_clear: "Borrar Todo", btn_start: "Empezar / Actualizar", btn_draw: "Dibujar", hp: "HP", strokes: "Trazos", skill_pencil: "Lápiz (E):", skill_sword: "Cúter (T):", skill_ruler: "Escudo Regla (Z):", ready: "Listo", cooldown: "Recarga", out_of_pencils: "Sin lápices", hint_move: "WASD / Flechas: Mover", hint_pencil: "E: Restaurar trazo", hint_sword: "T: Golpe de cúter", hint_ruler: "Z: Activar escudo", hint_damage: "*Más de 50 HP: ¡Pierdes 10 trazos!", over_title: "¡Has Sido Borrado!", over_desc: "Dibuja un nuevo personaje y presiona 'Empezar'", idle_hint_1: "Dibuja tu personaje a la izquierda", idle_hint_2: "¡y presiona Empezar!" },
+            de: { draw_title: "Charakter-Zeichenbrett", draw_desc: "1 Strich = 1 HP. Max 100 Striche.", btn_clear: "Alles löschen", btn_start: "Starten / Aktualisieren", btn_draw: "Zeichnen", hp: "HP", strokes: "Striche", skill_pencil: "Bleistift (E):", skill_sword: "Cutter (T):", skill_ruler: "Lineal-Schild (Z):", ready: "Bereit", cooldown: "Abklingzeit", out_of_pencils: "Keine Bleistifte mehr", hint_move: "WASD / Pfeile: Bewegen", hint_pencil: "E: Verlorenen Strich wiederherstellen", hint_sword: "T: Messer schwingen", hint_ruler: "Z: Lineal-Schild aktivieren", hint_damage: "*Über 50 HP: Treffer kostet 10 Striche!", over_title: "Du wurdest gelöscht!", over_desc: "Zeichne einen neuen Charakter und drücke 'Starten'", idle_hint_1: "Zeichne deinen Charakter links", idle_hint_2: "und drücke Starten!" },
+            pt: { draw_title: "Quadro de Desenho", draw_desc: "1 traço = 1 HP. Máx 100 traços.", btn_clear: "Limpar Tudo", btn_start: "Iniciar / Atualizar", btn_draw: "Desenhar", hp: "HP", strokes: "Traços", skill_pencil: "Lápis (E):", skill_sword: "Estilete (T):", skill_ruler: "Escudo Régua (Z):", ready: "Pronto", cooldown: "Recarga", out_of_pencils: "Sem lápis", hint_move: "WASD / Setas: Mover", hint_pencil: "E: Restaurar traço perdido", hint_sword: "T: Balançar estilete", hint_ruler: "Z: Ativar escudo", hint_damage: "*Mais de 50 HP: Atingido perde 10 traços!", over_title: "Você foi Apagado!", over_desc: "Desenhe um novo personagem e aperte 'Iniciar'", idle_hint_1: "Desenhe seu personagem no painel esquerdo", idle_hint_2: "e aperte Iniciar!" },
+            it: { draw_title: "Lavagna per Disegnare", draw_desc: "1 tratto = 1 HP. Max 100 tratti.", btn_clear: "Cancella Tutto", btn_start: "Inizia / Aggiorna", btn_draw: "Disegna", hp: "HP", strokes: "Tratti", skill_pencil: "Matita (E):", skill_sword: "Taglierino (T):", skill_ruler: "Scudo Righello (Z):", ready: "Pronto", cooldown: "Ricarica", out_of_pencils: "Matite esaurite", hint_move: "WASD / Frecce: Muovi", hint_pencil: "E: Ripristina tratto", hint_sword: "T: Colpisci col taglierino", hint_ruler: "Z: Attiva scudo", hint_damage: "*Oltre 50 HP: Colpito perdi 10 tratti!", over_title: "Sei Stato Cancellato!", over_desc: "Disegna un nuovo personaggio e premi 'Inizia'", idle_hint_1: "Disegna il tuo personaggio a sinistra", idle_hint_2: "e premi Inizia!" },
+            ar: { draw_title: "لوحة رسم الشخصية", draw_desc: "كل خط = 1 نقطة صحة. بحد أقصى 100 خط.", btn_clear: "مسح الكل", btn_start: "بدء / تحديث", btn_draw: "رسم", hp: "الصحة", strokes: "الخطوط", skill_pencil: "قلم رصاص (E):", skill_sword: "سكين (T):", skill_ruler: "درع المسطرة (Z):", ready: "جاهز", cooldown: "فترة التهدئة", out_of_pencils: "نفدت الأقلام", hint_move: "WASD / الأسهم: للتحرك", hint_pencil: "E: استعادة الخط المفقود", hint_sword: "T: التأرجح بالسكين", hint_ruler: "Z: تفعيل درع المسطرة", hint_damage: "*أكثر من 50 صحة: تلقي ضربة يفقدك 10 خطوط!", over_title: "لقد تم محوك!", over_desc: "ارسم شخصية جديدة واضغط على 'بدء'", idle_hint_1: "ارسم شخصيتك في اللوحة اليسرى", idle_hint_2: "واضغط على بدء!" },
+            hi: { draw_title: "कैरेक्टर ड्राइंग बोर्ड", draw_desc: "1 स्ट्रोक = 1 HP। अधिकतम 100 स्ट्रोक।", btn_clear: "सब मिटाएं", btn_start: "शुरू करें / अपडेट करें", btn_draw: "बनाएं", hp: "HP", strokes: "स्ट्रोक", skill_pencil: "पेंसिल (E):", skill_sword: "कटर (T):", skill_ruler: "रूलर शील्ड (Z):", ready: "तैयार", cooldown: "कूलडाउन", out_of_pencils: "पेंसिल खत्म", hint_move: "WASD / तीर: चलें", hint_pencil: "E: खोया हुआ स्ट्रोक वापस पाएं", hint_sword: "T: चाकू चलाएं", hint_ruler: "Z: रूलर शील्ड चालू करें", hint_damage: "*50 HP से अधिक: चोट लगने पर 10 स्ट्रोक खत्म!", over_title: "आप मिटा दिए गए हैं!", over_desc: "नया कैरेक्टर बनाएं और 'शुरू करें' दबाएं", idle_hint_1: "बाईं ओर अपना कैरेक्टर बनाएं", idle_hint_2: "और शुरू करें दबाएं!" },
+            nl: { draw_title: "Personage Tekenbord", draw_desc: "1 streek = 1 HP. Max 100 streken.", btn_clear: "Alles Wissen", btn_start: "Starten / Bijwerken", btn_draw: "Tekenen", hp: "HP", strokes: "Streken", skill_pencil: "Potlood (E):", skill_sword: "Stanleymes (T):", skill_ruler: "Liniaal Schild (Z):", ready: "Gereed", cooldown: "Afkoelen", out_of_pencils: "Geen potloden meer", hint_move: "WASD / Pijlen: Bewegen", hint_pencil: "E: Verloren streek herstellen", hint_sword: "T: Mes zwaaien", hint_ruler: "Z: Liniaal schild activeren", hint_damage: "*Boven 50 HP: Geraakt verliest 10 streken!", over_title: "Je bent Uitgewist!", over_desc: "Teken een nieuw personage en druk op 'Starten'", idle_hint_1: "Teken je personage aan de linkerkant", idle_hint_2: "en druk op Starten!" },
+            tr: { draw_title: "Karakter Çizim Tahtası", draw_desc: "1 çizgi = 1 HP. Maks 100 çizgi.", btn_clear: "Hepsini Sil", btn_start: "Başlat / Güncelle", btn_draw: "Çiz", hp: "HP", strokes: "Çizgiler", skill_pencil: "Kurşun Kalem (E):", skill_sword: "Maket Bıçağı (T):", skill_ruler: "Cetvel Kalkanı (Z):", ready: "Hazır", cooldown: "Bekleme Süresi", out_of_pencils: "Kalem kalmadı", hint_move: "WASD / Oklar: Hareket", hint_pencil: "E: Kayıp çizgiyi geri yükle", hint_sword: "T: Bıçak salla", hint_ruler: "Z: Cetvel kalkanını aç", hint_damage: "*50 HP üzeri: Vurulursan 10 çizgi gider!", over_title: "Silindin!", over_desc: "Yeni bir karakter çiz ve 'Başlat'a bas", idle_hint_1: "Sol panelde karakterini çiz", idle_hint_2: "ve Başlat'a bas!" },
+            pl: { draw_title: "Tablica Rysowania Postaci", draw_desc: "1 kreska = 1 HP. Maks 100 kresek.", btn_clear: "Wyczyść Wszystko", btn_start: "Start / Aktualizuj", btn_draw: "Rysuj", hp: "HP", strokes: "Kreski", skill_pencil: "Ołówek (E):", skill_sword: "Nóż (T):", skill_ruler: "Tarcza Linijki (Z):", ready: "Gotowe", cooldown: "Czas odnowienia", out_of_pencils: "Brak ołówków", hint_move: "WASD / Strzałki: Ruch", hint_pencil: "E: Przywróć utraconą kreskę", hint_sword: "T: Zamach nożem", hint_ruler: "Z: Aktywuj tarczę", hint_damage: "*Powyżej 50 HP: Trafienie zabiera 10 kresek!", over_title: "Zostałeś Wymazany!", over_desc: "Narysuj nową postać i wciśnij 'Start'", idle_hint_1: "Narysuj swoją postać po lewej stronie", idle_hint_2: "i wciśnij Start!" },
+            sv: { draw_title: "Karaktärsritbräda", draw_desc: "1 linje = 1 HP. Max 100 linjer.", btn_clear: "Rensa Allt", btn_start: "Starta / Uppdatera", btn_draw: "Rita", hp: "HP", strokes: "Linjer", skill_pencil: "Penna (E):", skill_sword: "Kniv (T):", skill_ruler: "Linjal Sköld (Z):", ready: "Redo", cooldown: "Nedkylning", out_of_pencils: "Inga pennor kvar", hint_move: "WASD / Pilar: Rör dig", hint_pencil: "E: Återställ förlorad linje", hint_sword: "T: Svep kniv", hint_ruler: "Z: Aktivera linjalsköld", hint_damage: "*Över 50 HP: Träffad förlorar 10 linjer!", over_title: "Du Har Blivit Suddad!", over_desc: "Rita en ny karaktär och tryck på 'Starta'", idle_hint_1: "Rita din karaktär till vänster", idle_hint_2: "och tryck på Starta!" }
+        };
+
+        let currentLang = 'vi';
+        const langSelect = document.getElementById('lang-select');
+
+        function t(key) {
+            return translations[currentLang][key] || translations['en'][key] || key;
+        }
+
+        function applyTranslations() {
+            // Tự động đổi hướng chữ cho tiếng Ả Rập (RTL)
+            if (currentLang === 'ar') {
+                document.documentElement.dir = 'rtl';
+                document.body.style.direction = 'rtl';
+            } else {
+                document.documentElement.dir = 'ltr';
+                document.body.style.direction = 'ltr';
+            }
+
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                el.innerText = t(key);
+            });
+            updateGameUI();
+            updateSkillUI();
+        }
+
+        langSelect.addEventListener('change', (e) => {
+            currentLang = e.target.value;
+            applyTranslations();
+        });
+
+        // --- KHỞI TẠO CANVAS ---
+        const drawCanvas = document.getElementById('drawCanvas');
+        const dCtx = drawCanvas.getContext('2d');
+        const gameCanvas = document.getElementById('gameCanvas');
+        const gCtx = gameCanvas.getContext('2d');
+
+        const leftPanel = document.getElementById('left-panel');
+        const btnOpenPanel = document.getElementById('btn-open-panel');
+
+        let drawWidth, drawHeight;
+        let gameWidth, gameHeight;
+
+        function resize() {
+            const drawContainer = document.getElementById('draw-canvas-container');
+            if (!leftPanel.classList.contains('hidden') && drawContainer.clientWidth > 0) {
+                drawWidth = drawCanvas.width = drawContainer.clientWidth;
+                drawHeight = drawCanvas.height = drawContainer.clientHeight;
+            }
+            
+            const gameContainer = document.getElementById('right-panel');
+            gameWidth = gameCanvas.width = gameContainer.clientWidth;
+            gameHeight = gameCanvas.height = gameContainer.clientHeight;
+
+            if (gameState === 'PLAYING' || gameState === 'GAMEOVER') {
+                player.x = Math.max(player.radius, Math.min(gameWidth - player.radius, player.x));
+                player.y = Math.max(player.radius, Math.min(gameHeight - player.radius, player.y));
+            }
+        }
+
+        const MAX_STROKES = 100;
+        let gameState = 'IDLE'; 
+        
+        let strokes = []; 
+        let currentStroke = [];
+        let isDrawing = false; 
+
+        const player = {
+            x: 0, y: 0, speed: 6, radius: 30, hp: 0, maxHp: 0,
+            invulnerable: false, allStrokes: [], activeStrokes: [],
+            maxRadius: 30 
+        };
+
+        let enemies = [];
+        let pencils = [];
+        let eraserDust = [];
+        let keys = {};
+
+        const MAX_PENCIL_INVENTORY = 2;
+        let pencilInventory = 2;
+        let pencilCooldownTimer = 0;
+        let pencilActive = false;
+        let pencilTargetStroke = null;
+        let pencilProgress = 0;
+        let pencilDuration = 1; 
+
+        let swordCooldownTimer = 0;
+        let swordActive = false;
+        let swordTime = 0;
+        const SWORD_DURATION = 0.3; 
+        const SWORD_LENGTH = 100; 
+
+        let rulerCooldownTimer = 0;
+        let rulerActive = false;
+        let rulerTime = 0;
+        const RULER_DURATION = 5.0; 
+        let rulerRadius = 65; 
+        const RULER_THICKNESS = 12; 
+
+        // --- BIẾN JOYSTICK ---
+        let joyVector = { x: 0, y: 0 };
+        let joyActive = false;
+        let joyCenter = { x: 0, y: 0 };
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+
+        function triggerE() {
+            if (gameState === 'PLAYING' && pencilCooldownTimer <= 0 && !pencilActive && pencilInventory > 0 && player.activeStrokes.length < player.allStrokes.length) {
+                const missing = player.allStrokes.filter(s => !player.activeStrokes.includes(s));
+                pencilTargetStroke = missing[Math.floor(Math.random() * missing.length)];
+                pencilDuration = Math.max(1, pencilTargetStroke.length * 0.03); 
+                pencilProgress = 0;
+                pencilActive = true;
+                pencilInventory--;
+                pencilCooldownTimer = 36;
+                updateSkillUI();
+            }
+        }
+
+        function triggerT() {
+            if (gameState === 'PLAYING' && swordCooldownTimer <= 0 && !swordActive) {
+                swordActive = true;
+                swordTime = SWORD_DURATION;
+                swordCooldownTimer = 20;
+                updateSkillUI();
+            }
+        }
+
+        function triggerZ() {
+            if (gameState === 'PLAYING' && rulerCooldownTimer <= 0 && !rulerActive) {
+                rulerActive = true;
+                rulerTime = RULER_DURATION;
+                rulerCooldownTimer = 20;
+                updateSkillUI();
+            }
+        }
+
+        window.addEventListener('keydown', e => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key.toLowerCase() === 'e') triggerE();
+            if (e.key.toLowerCase() === 't') triggerT();
+            if (e.key.toLowerCase() === 'z') triggerZ();
+        });
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+        document.getElementById('btn-e').addEventListener('pointerdown', (e) => { e.preventDefault(); triggerE(); });
+        document.getElementById('btn-t').addEventListener('pointerdown', (e) => { e.preventDefault(); triggerT(); });
+        document.getElementById('btn-z').addEventListener('pointerdown', (e) => { e.preventDefault(); triggerZ(); });
+
+        joystickZone.addEventListener('pointerdown', (e) => {
+            joyActive = true;
+            const rect = joystickZone.getBoundingClientRect();
+            joyCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+            updateJoystick(e.clientX, e.clientY);
+            e.preventDefault();
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (joyActive) {
+                updateJoystick(e.clientX, e.clientY);
+                e.preventDefault();
+            }
+        });
+
+        window.addEventListener('pointerup', () => {
+            if (joyActive) {
+                joyActive = false;
+                joyVector = { x: 0, y: 0 };
+                joystickKnob.style.transform = `translate(-50%, -50%)`;
+            }
+        });
+
+        function updateJoystick(clientX, clientY) {
+            let dx = clientX - joyCenter.x;
+            let dy = clientY - joyCenter.y;
+            let dist = Math.hypot(dx, dy);
+            let maxDist = 40;
+
+            if (dist > maxDist) {
+                dx = (dx / dist) * maxDist;
+                dy = (dy / dist) * maxDist;
+            }
+
+            joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            joyVector.x = dx / maxDist;
+            joyVector.y = dy / maxDist;
+        }
+
+        drawCanvas.addEventListener('pointerdown', (e) => {
+            if (strokes.length >= MAX_STROKES) return;
+            if (gameState === 'GAMEOVER') {
+                gameState = 'IDLE';
+                document.getElementById('game-over').style.display = 'none';
+            }
+
+            const rect = drawCanvas.getBoundingClientRect();
+            isDrawing = true;
+            currentStroke = [{ x: e.clientX - rect.left, y: e.clientY - rect.top }];
+            strokes.push(currentStroke);
+            updateDrawingUI();
+        });
+
+        drawCanvas.addEventListener('pointermove', (e) => {
+            if (!isDrawing || currentStroke.length === 0) return;
+            const rect = drawCanvas.getBoundingClientRect();
+            let x = Math.max(0, Math.min(drawWidth, e.clientX - rect.left));
+            let y = Math.max(0, Math.min(drawHeight, e.clientY - rect.top));
+            let lastPoint = currentStroke[currentStroke.length - 1];
+            
+            if (Math.hypot(x - lastPoint.x, y - lastPoint.y) > 4) {
+                currentStroke.push({ x, y });
+            }
+        });
+
+        window.addEventListener('pointerup', () => { isDrawing = false; });
+        window.addEventListener('pointercancel', () => { isDrawing = false; });
+
+        document.getElementById('btn-close-panel').addEventListener('click', () => {
+            leftPanel.classList.add('hidden');
+            btnOpenPanel.classList.add('show');
+            setTimeout(resize, 320);
+        });
+
+        btnOpenPanel.addEventListener('click', () => {
+            leftPanel.classList.remove('hidden');
+            btnOpenPanel.classList.remove('show');
+            setTimeout(resize, 320);
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            if (gameState === 'PLAYING' && !confirm(t('confirm_clear'))) return;
+            strokes = [];
+            currentStroke = [];
+            isDrawing = false; 
+            
+            if (gameState === 'GAMEOVER') {
+                gameState = 'IDLE';
+                document.getElementById('game-over').style.display = 'none';
+            }
+            updateDrawingUI();
+        });
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            if (strokes.length === 0) return;
+            applyDrawing();
+            if (!leftPanel.classList.contains('hidden')) {
+                leftPanel.classList.add('hidden');
+                btnOpenPanel.classList.add('show');
+                setTimeout(resize, 320);
+            }
+        });
+
+        function updateDrawingUI() {
+            const counter = document.getElementById('stroke-count');
+            counter.innerText = `${strokes.length} / ${MAX_STROKES}`;
+            document.getElementById('btn-start').disabled = strokes.length === 0;
+            counter.style.color = strokes.length >= MAX_STROKES ? '#2ecc71' : '#e74c3c';
+        }
+
+        function applyDrawing() {
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            strokes.forEach(stroke => stroke.forEach(p => {
+                if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+            }));
+
+            let centerX = (minX + maxX) / 2;
+            let centerY = (minY + maxY) / 2;
+            let maxDim = Math.max(maxX - minX, maxY - minY);
+            let scale = maxDim > 150 ? 150 / maxDim : 1;
+            if (scale < 0.2) scale = 0.2;
+
+            player.allStrokes = strokes.map(stroke => 
+                stroke.map(p => ({ x: (p.x - centerX) * scale, y: (p.y - centerY) * scale }))
+            );
+            player.activeStrokes = [...player.allStrokes];
+            player.maxHp = player.activeStrokes.length;
+            player.hp = player.maxHp;
+            player.radius = Math.max(20, (maxDim * scale) / 2 + 15);
+
+            let maxDist = 0;
+            player.allStrokes.forEach(stroke => {
+                stroke.forEach(p => {
+                    let dist = Math.hypot(p.x, p.y);
+                    if (dist > maxDist) maxDist = dist;
+                });
+            });
+            player.maxRadius = maxDist;
+            rulerRadius = player.maxRadius + 30;
+
+            if (gameState === 'GAMEOVER' || gameState === 'IDLE') {
+                enemies = []; pencils = []; eraserDust = [];
+                player.x = gameWidth / 2;
+                player.y = gameHeight / 2;
+                gameState = 'PLAYING';
+                document.getElementById('game-over').style.display = 'none';
+            }
+            
+            pencilActive = false;
+            swordActive = false;
+            rulerActive = false;
+            isDrawing = false; 
+            
+            updateGameUI();
+            updateSkillUI();
+        }
+
+        function distToSegment(px, py, x1, y1, x2, y2) {
+            var dx = x2 - x1;
+            var dy = y2 - y1;
+            var l2 = dx * dx + dy * dy;
+            if (l2 === 0) return Math.hypot(px - x1, py - y1);
+            var t = ((px - x1) * dx + (py - y1) * dy) / l2;
+            t = Math.max(0, Math.min(1, t));
+            return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+        }
+
+        let lastTimestamp = 0;
+        let lastEnemySpawn = 0;
+        let lastPencilSpawn = 0;
+
+        function updateGame(dt) {
+            if (gameState !== 'PLAYING') return;
+
+            if (pencilCooldownTimer > 0) pencilCooldownTimer -= dt;
+            if (swordCooldownTimer > 0) swordCooldownTimer -= dt;
+            if (rulerCooldownTimer > 0) rulerCooldownTimer -= dt;
+            
+            if (rulerActive) {
+                rulerTime -= dt;
+                if (rulerTime <= 0) rulerActive = false;
+            }
+
+            updateSkillUI(); 
+
+            if (pencilActive) {
+                pencilProgress += dt / pencilDuration;
+                if (pencilProgress >= 1) {
+                    pencilActive = false;
+                    player.activeStrokes.push(pencilTargetStroke);
+                    player.hp = player.activeStrokes.length;
+                    pencilTargetStroke = null;
+                    updateGameUI();
+                }
+            }
+
+            if (swordActive) {
+                swordTime -= dt;
+                if (swordTime <= 0) {
+                    swordActive = false;
+                } else {
+                    const progress = 1 - swordTime / SWORD_DURATION;
+                    const swordAngle = -Math.PI / 2 + progress * Math.PI; 
+                    const swordRange = player.radius + SWORD_LENGTH;
+
+                    for (let i = enemies.length - 1; i >= 0; i--) {
+                        let e = enemies[i];
+                        let dx = e.x - player.x;
+                        let dy = e.y - player.y;
+                        let dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < swordRange && dist > 10) {
+                            let enemyAngle = Math.atan2(dy, dx);
+                            let angleDiff = Math.abs(enemyAngle - swordAngle);
+                            if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+                            
+                            if (angleDiff < Math.PI / 4) {
+                                createEraserDust(e.x, e.y);
+                                enemies.splice(i, 1);
+                            }
+                        }
+                    }
+                }
+            }
+
+            let currentSpeed = player.speed;
+            if (pencilActive) currentSpeed *= 0.5;
+
+            let moveX = 0, moveY = 0;
+            
+            if (keys['a'] || keys['arrowleft']) moveX -= 1;
+            if (keys['d'] || keys['arrowright']) moveX += 1;
+            if (keys['w'] || keys['arrowup']) moveY -= 1;
+            if (keys['s'] || keys['arrowdown']) moveY += 1;
+
+            if (joyVector.x !== 0 || joyVector.y !== 0) {
+                moveX = joyVector.x;
+                moveY = joyVector.y;
+            }
+
+            let moveDist = Math.hypot(moveX, moveY);
+            if (moveDist > 0) {
+                moveX = (moveX / moveDist) * currentSpeed;
+                moveY = (moveY / moveDist) * currentSpeed;
+                player.lastMoveAngle = Math.atan2(moveY, moveX);
+                player.x += moveX;
+                player.y += moveY;
+            }
+
+            player.x = Math.max(player.radius, Math.min(gameWidth - player.radius, player.x));
+            player.y = Math.max(player.radius, Math.min(gameHeight - player.radius, player.y));
+
+            const now = Date.now();
+
+            if (now - lastEnemySpawn > 1500) {
+                const side = Math.floor(Math.random() * 4);
+                let ex, ey;
+                if (side === 0) { ex = Math.random() * gameWidth; ey = -50; }
+                else if (side === 1) { ex = gameWidth + 50; ey = Math.random() * gameHeight; }
+                else if (side === 2) { ex = Math.random() * gameWidth; ey = gameHeight + 50; }
+                else { ex = -50; ey = Math.random() * gameHeight; }
+                enemies.push({ x: ex, y: ey, speed: 2.0 + Math.random() * 1.5, angle: 0 });
+                lastEnemySpawn = now;
+            }
+
+            if (now - lastPencilSpawn > 3500) {
+                pencils.push({
+                    x: 50 + Math.random() * (gameWidth - 100),
+                    y: 50 + Math.random() * (gameHeight - 100),
+                    angle: Math.random() * Math.PI * 2, life: 8000 
+                });
+                lastPencilSpawn = now;
+            }
+
+            if (rulerActive) {
+                const r = rulerRadius;
+                const t = RULER_THICKNESS;
+                const eraserRad = 20;
+                const x1 = player.x - r; const y1 = player.y - r;
+                const x2 = player.x + r; const y2 = player.y + r;
+
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    let e = enemies[i];
+                    const dTop = distToSegment(e.x, e.y, x1, y1, x2, y1);
+                    const dBottom = distToSegment(e.x, e.y, x1, y2, x2, y2);
+                    const dLeft = distToSegment(e.x, e.y, x1, y1, x1, y2);
+                    const dRight = distToSegment(e.x, e.y, x2, y1, x2, y2);
+
+                    if (dTop < (t/2 + eraserRad) || dBottom < (t/2 + eraserRad) || 
+                        dLeft < (t/2 + eraserRad) || dRight < (t/2 + eraserRad)) {
+                        createEraserDust(e.x, e.y);
+                        enemies.splice(i, 1);
+                    }
+                }
+            }
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                let ex_dx = player.x - e.x;
+                let ex_dy = player.y - e.y;
+                let dist = Math.sqrt(ex_dx * ex_dx + ex_dy * ex_dy);
+
+                if (dist > 0) {
+                    e.x += (ex_dx / dist) * e.speed;
+                    e.y += (ex_dy / dist) * e.speed;
+                    e.angle = Math.atan2(ex_dy, ex_dx);
+                }
+
+                if (dist < player.radius + 20 && !player.invulnerable) {
+                    let damage = (player.hp > 50) ? 10 : 1;
+                    for (let d = 0; d < damage; d++) {
+                        if (player.activeStrokes.length > 0) {
+                            const randomIndex = Math.floor(Math.random() * player.activeStrokes.length);
+                            player.activeStrokes.splice(randomIndex, 1);
+                        }
+                    }
+                    
+                    player.hp = player.activeStrokes.length;
+                    createEraserDust(player.x, player.y);
+                    
+                    if (pencilActive) {
+                        pencilActive = false;
+                        pencilTargetStroke = null;
+                    }
+
+                    player.invulnerable = true;
+                    setTimeout(() => player.invulnerable = false, 1000);
+
+                    enemies.splice(i, 1);
+                    updateGameUI();
+
+                    if (player.activeStrokes.length === 0) {
+                        gameState = 'GAMEOVER';
+                        document.getElementById('game-over').style.display = 'block';
+                        strokes = [];
+                        currentStroke = [];
+                        updateDrawingUI();
+                        
+                        if (leftPanel.classList.contains('hidden')) {
+                            leftPanel.classList.remove('hidden');
+                            btnOpenPanel.classList.remove('show');
+                            setTimeout(resize, 320);
+                        }
+                    }
+                }
+            }
+
+            for (let i = pencils.length - 1; i >= 0; i--) {
+                let p = pencils[i];
+                p.life -= 16;
+                p.angle += 0.02;
+
+                if (p.life <= 0) { pencils.splice(i, 1); continue; }
+
+                let p_dx = player.x - p.x;
+                let p_dy = player.y - p.y;
+                let dist = Math.sqrt(p_dx * p_dx + p_dy * p_dy);
+
+                if (dist < player.radius + 20) {
+                    pencils.splice(i, 1);
+                    if (pencilInventory < MAX_PENCIL_INVENTORY) {
+                        pencilInventory++;
+                    } else if (player.activeStrokes.length < player.allStrokes.length) {
+                        const missing = player.allStrokes.filter(s => !player.activeStrokes.includes(s));
+                        player.activeStrokes.push(missing[Math.floor(Math.random() * missing.length)]);
+                        player.hp = player.activeStrokes.length; 
+                    }
+                    updateGameUI();
+                    updateSkillUI();
+                }
+            }
+
+            for (let i = eraserDust.length - 1; i >= 0; i--) {
+                let d = eraserDust[i];
+                d.x += d.vx; d.y += d.vy;
+                d.vx *= 0.95; d.vy *= 0.95;
+                d.life -= 0.02;
+                if (d.life <= 0) eraserDust.splice(i, 1);
+            }
+        }
+
+        function drawGame() {
+            gCtx.fillStyle = '#fdfdfd';
+            gCtx.fillRect(0, 0, gameWidth, gameHeight);
+
+            gCtx.strokeStyle = '#f0f0f0';
+            gCtx.lineWidth = 1;
+            for(let i=0; i<gameWidth; i+=40) { gCtx.beginPath(); gCtx.moveTo(i, 0); gCtx.lineTo(i, gameHeight); gCtx.stroke(); }
+            for(let i=0; i<gameHeight; i+=40) { gCtx.beginPath(); gCtx.moveTo(0, i); gCtx.lineTo(gameWidth, i); gCtx.stroke(); }
+
+            if (gameState === 'IDLE') {
+                gCtx.fillStyle = '#aaa';
+                gCtx.font = 'bold 24px "Segoe UI", Tahoma, sans-serif';
+                gCtx.textAlign = 'center';
+                gCtx.fillText(t('idle_hint_1'), gameWidth / 2, gameHeight / 2 - 20);
+                gCtx.fillText(t('idle_hint_2'), gameWidth / 2, gameHeight / 2 + 20);
+                return;
+            }
+
+            eraserDust.forEach(d => {
+                gCtx.fillStyle = d.color;
+                gCtx.globalAlpha = d.life;
+                gCtx.beginPath(); gCtx.arc(d.x, d.y, d.size, 0, Math.PI * 2); gCtx.fill();
+            });
+            gCtx.globalAlpha = 1.0;
+
+            pencils.forEach(p => drawPencil(p.x, p.y, p.angle));
+            enemies.forEach(e => drawEraser(e.x, e.y, e.angle));
+
+            if (player.activeStrokes.length > 0) {
+                drawPlayer();
+            }
+
+            if (swordActive) {
+                const progress = 1 - swordTime / SWORD_DURATION;
+                const angle = -Math.PI / 2 + progress * Math.PI; 
+                gCtx.save();
+                gCtx.translate(player.x, player.y);
+                gCtx.rotate(angle);
+                
+                gCtx.beginPath();
+                gCtx.arc(0, 0, SWORD_LENGTH, -0.15, 0.15); 
+                gCtx.strokeStyle = 'rgba(200, 200, 255, 0.8)';
+                gCtx.lineWidth = 5;
+                gCtx.stroke();
+
+                gCtx.fillStyle = '#f1c40f';
+                gCtx.fillRect(0, -6, 30, 12);
+                gCtx.strokeStyle = '#333';
+                gCtx.lineWidth = 2;
+                gCtx.strokeRect(0, -6, 30, 12);
+                
+                gCtx.beginPath();
+                gCtx.moveTo(10, -6); gCtx.lineTo(10, 6);
+                gCtx.moveTo(20, -6); gCtx.lineTo(20, 6);
+                gCtx.stroke();
+
+                gCtx.fillStyle = '#bdc3c7';
+                gCtx.beginPath();
+                gCtx.moveTo(30, -5);
+                gCtx.lineTo(80, -5); 
+                gCtx.lineTo(SWORD_LENGTH, 0);  
+                gCtx.lineTo(30, 6);  
+                gCtx.closePath();
+                gCtx.fill();
+                gCtx.strokeStyle = '#7f8c8d';
+                gCtx.stroke();
+                
+                gCtx.fillStyle = '#ecf0f1';
+                gCtx.beginPath();
+                gCtx.ellipse(55, 0, 6, 2, 0, 0, Math.PI * 2);
+                gCtx.fill();
+                gCtx.stroke();
+
+                gCtx.beginPath();
+                gCtx.moveTo(30, 0);
+                gCtx.lineTo(90, 0);
+                gCtx.strokeStyle = 'rgba(0,0,0,0.1)';
+                gCtx.stroke();
+                gCtx.restore();
+            }
+
+            if (rulerActive) {
+                const r = rulerRadius;
+                const t = RULER_THICKNESS;
+                gCtx.save();
+                
+                gCtx.beginPath();
+                gCtx.rect(player.x - r, player.y - r, r*2, r*2);
+                gCtx.lineWidth = t;
+                gCtx.strokeStyle = 'rgba(52, 152, 219, 0.4)'; 
+                gCtx.stroke();
+
+                gCtx.lineWidth = 2;
+                gCtx.strokeStyle = '#2980b9';
+                gCtx.strokeRect(player.x - r - t/2, player.y - r - t/2, r*2 + t, r*2 + t);
+                gCtx.strokeRect(player.x - r + t/2, player.y - r + t/2, r*2 - t, r*2 - t);
+
+                gCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                gCtx.lineWidth = 1;
+                
+                for(let i = -r + 10; i <= r - 10; i+=10) {
+                    let lineH = (i % 20 === 0) ? t/2 : t/4;
+                    gCtx.beginPath(); gCtx.moveTo(player.x + i, player.y - r - t/2); gCtx.lineTo(player.x + i, player.y - r - t/2 + lineH); gCtx.stroke();
+                    gCtx.beginPath(); gCtx.moveTo(player.x + i, player.y + r + t/2); gCtx.lineTo(player.x + i, player.y + r + t/2 - lineH); gCtx.stroke();
+                }
+                
+                for(let i = -r + 10; i <= r - 10; i+=10) {
+                    let lineH = (i % 20 === 0) ? t/2 : t/4;
+                    gCtx.beginPath(); gCtx.moveTo(player.x - r - t/2, player.y + i); gCtx.lineTo(player.x - r - t/2 + lineH, player.y + i); gCtx.stroke();
+                    gCtx.beginPath(); gCtx.moveTo(player.x + r + t/2, player.y + i); gCtx.lineTo(player.x + r + t/2 - lineH, player.y + i); gCtx.stroke();
+                }
+                gCtx.restore();
+            }
+        }
+
+        function drawPlayer() {
+            gCtx.strokeStyle = '#1a1a1a';
+            gCtx.lineWidth = 4;
+            gCtx.lineCap = 'round';
+            gCtx.lineJoin = 'round';
+
+            if (player.invulnerable && Math.floor(Date.now() / 100) % 2 === 0) {
+                gCtx.globalAlpha = 0.3;
+            }
+
+            gCtx.save();
+            gCtx.translate(player.x, player.y);
+
+            player.activeStrokes.forEach(stroke => {
+                gCtx.beginPath();
+                if (stroke.length === 1) {
+                    gCtx.arc(stroke[0].x, stroke[0].y, 3, 0, Math.PI * 2);
+                    gCtx.fillStyle = '#1a1a1a';
+                    gCtx.fill();
+                } else {
+                    gCtx.moveTo(stroke[0].x, stroke[0].y);
+                    for (let i = 1; i < stroke.length; i++) gCtx.lineTo(stroke[i].x, stroke[i].y);
+                    gCtx.stroke();
+                }
+            });
+
+            if (pencilActive && pencilTargetStroke) {
+                const totalPoints = pencilTargetStroke.length;
+                const pointsToDraw = Math.floor(totalPoints * pencilProgress);
+                if (pointsToDraw > 0) {
+                    gCtx.beginPath();
+                    gCtx.moveTo(pencilTargetStroke[0].x, pencilTargetStroke[0].y);
+                    for (let i = 1; i <= pointsToDraw && i < totalPoints; i++) {
+                        gCtx.lineTo(pencilTargetStroke[i].x, pencilTargetStroke[i].y);
+                    }
+                    gCtx.strokeStyle = '#3498db'; 
+                    gCtx.lineWidth = 6;
+                    gCtx.stroke();
+                    gCtx.strokeStyle = '#1a1a1a';
+                    gCtx.lineWidth = 4;
+                }
+
+                gCtx.save();
+                gCtx.rotate(-Math.PI/4);
+                gCtx.fillStyle = '#f1c40f';
+                gCtx.fillRect(10, -25, 6, 20);
+                gCtx.fillStyle = '#e67e22';
+                gCtx.beginPath();
+                gCtx.moveTo(10, -25);
+                gCtx.lineTo(13, -33);
+                gCtx.lineTo(16, -25);
+                gCtx.fill();
+                gCtx.restore();
+            }
+            gCtx.restore();
+            gCtx.globalAlpha = 1.0;
+        }
+
+        function drawEraser(x, y, angle) {
+            gCtx.save();
+            gCtx.translate(x, y);
+            gCtx.rotate(angle);
+            gCtx.fillStyle = '#f78fb3';
+            gCtx.beginPath(); gCtx.roundRect(-25, -12, 50, 24, 4); gCtx.fill();
+            gCtx.strokeStyle = '#d15a84'; gCtx.lineWidth = 2; gCtx.stroke();
+            gCtx.fillStyle = '#ffffff';
+            gCtx.beginPath();
+            gCtx.moveTo(-25, -12); gCtx.lineTo(-35, -6); gCtx.lineTo(-35, 6); gCtx.lineTo(-25, 12); gCtx.closePath();
+            gCtx.fill();
+            gCtx.strokeStyle = '#bdc3c7'; gCtx.stroke();
+            gCtx.restore();
+        }
+
+        function drawPencil(x, y, angle) {
+            gCtx.save();
+            gCtx.translate(x, y);
+            gCtx.rotate(angle);
+            gCtx.fillStyle = '#f1c40f'; gCtx.fillRect(-15, -6, 30, 12);
+            gCtx.strokeStyle = '#d35400'; gCtx.lineWidth = 1; gCtx.strokeRect(-15, -6, 30, 12);
+            gCtx.fillStyle = '#e67e22';
+            gCtx.beginPath(); gCtx.moveTo(15, -6); gCtx.lineTo(25, 0); gCtx.lineTo(15, 6); gCtx.closePath(); gCtx.fill();
+            gCtx.fillStyle = '#2c3e50';
+            gCtx.beginPath(); gCtx.moveTo(22, -2); gCtx.lineTo(25, 0); gCtx.lineTo(22, 2); gCtx.closePath(); gCtx.fill();
+            gCtx.fillStyle = '#f78fb3'; gCtx.fillRect(-20, -6, 5, 12);
+            gCtx.strokeStyle = '#555'; gCtx.strokeRect(-20, -6, 5, 12);
+            gCtx.restore();
+        }
+
+        CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+            if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
+            this.beginPath(); this.moveTo(x + r, y);
+            this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r);
+            this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r);
+            this.closePath(); return this;
+        }
+
+        function createEraserDust(x, y) {
+            for (let i = 0; i < 15; i++) {
+                eraserDust.push({
+                    x: x, y: y, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
+                    life: 1.0, color: Math.random() > 0.5 ? '#f78fb3' : '#ffffff', size: Math.random() * 3 + 1
+                });
+            }
+        }
+
+        function updateGameUI() {
+            let hpPercent = player.maxHp === 0 ? 0 : (player.hp / player.maxHp) * 100;
+            document.getElementById('hp-fill').style.width = `${hpPercent}%`;
+            document.getElementById('stats').innerHTML = `${t('hp')}: ${player.hp} / ${player.maxHp} (${t('strokes')}: ${player.activeStrokes.length})`;
+        }
+
+        function updateSkillUI() {
+            document.getElementById('pencil-count').innerText = pencilInventory;
+            const pencilCdEl = document.getElementById('pencil-cd');
+            const swordCdEl = document.getElementById('sword-cd');
+            const rulerCdEl = document.getElementById('ruler-cd');
+
+            const mECd = document.getElementById('m-e-cd');
+            const mTCd = document.getElementById('m-t-cd');
+            const mZCd = document.getElementById('m-z-cd');
+
+            if (pencilCooldownTimer > 0) {
+                pencilCdEl.innerText = `${t('cooldown')}: ${Math.ceil(pencilCooldownTimer)}s`;
+                pencilCdEl.className = 'skill-cooldown';
+                mECd.innerText = `${Math.ceil(pencilCooldownTimer)}s`;
+            } else if (pencilInventory <= 0) {
+                pencilCdEl.innerText = t('out_of_pencils');
+                pencilCdEl.className = 'skill-cooldown';
+                mECd.innerText = 'X';
+            } else {
+                pencilCdEl.innerText = `${t('ready')} (E)`;
+                pencilCdEl.className = 'skill-ready';
+                mECd.innerText = '';
+            }
+
+            if (swordCooldownTimer > 0) {
+                swordCdEl.innerText = `${t('cooldown')}: ${Math.ceil(swordCooldownTimer)}s`;
+                swordCdEl.className = 'skill-cooldown';
+                mTCd.innerText = `${Math.ceil(swordCooldownTimer)}s`;
+            } else {
+                swordCdEl.innerText = `${t('ready')} (T)`;
+                swordCdEl.className = 'skill-ready';
+                mTCd.innerText = '';
+            }
+
+            if (rulerCooldownTimer > 0) {
+                rulerCdEl.innerText = `${t('cooldown')}: ${Math.ceil(rulerCooldownTimer)}s`;
+                rulerCdEl.className = 'skill-cooldown';
+                mZCd.innerText = `${Math.ceil(rulerCooldownTimer)}s`;
+            } else {
+                rulerCdEl.innerText = `${t('ready')} (Z)`;
+                rulerCdEl.className = 'skill-ready';
+                mZCd.innerText = '';
+            }
+        }
+
+        function drawLeftPanel() {
+            if (leftPanel.classList.contains('hidden')) {
+                requestAnimationFrame(drawLeftPanel);
+                return;
+            }
+            dCtx.fillStyle = '#fdfdfd';
+            dCtx.fillRect(0, 0, drawWidth, drawHeight);
+            dCtx.strokeStyle = '#e0e0e0';
+            dCtx.lineWidth = 1;
+            for(let i=0; i<drawWidth; i+=30) { dCtx.beginPath(); dCtx.moveTo(i, 0); dCtx.lineTo(i, drawHeight); dCtx.stroke(); }
+            for(let i=0; i<drawHeight; i+=30) { dCtx.beginPath(); dCtx.moveTo(0, i); dCtx.lineTo(drawWidth, i); dCtx.stroke(); }
+
+            dCtx.strokeStyle = '#1a1a1a';
+            dCtx.lineWidth = 4;
+            dCtx.lineCap = 'round';
+            dCtx.lineJoin = 'round';
+
+            strokes.forEach(stroke => {
+                dCtx.beginPath();
+                if (stroke.length === 1) {
+                    dCtx.arc(stroke[0].x, stroke[0].y, 3, 0, Math.PI * 2);
+                    dCtx.fillStyle = '#1a1a1a'; dCtx.fill();
+                } else {
+                    dCtx.moveTo(stroke[0].x, stroke[0].y);
+                    for (let i = 1; i < stroke.length; i++) dCtx.lineTo(stroke[i].x, stroke[i].y);
+                    dCtx.stroke();
+                }
+            });
+            requestAnimationFrame(drawLeftPanel);
+        }
+
+        function mainLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            let dt = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+            
+            if (dt > 0.1) dt = 0.1;
+
+            if (gameState === 'PLAYING') {
+                updateGame(dt);
+            }
+            drawGame();
+            requestAnimationFrame(mainLoop);
+        }
+
+        window.addEventListener('resize', resize);
+        window.addEventListener('load', () => {
+            resize();
+            updateDrawingUI();
+            applyTranslations();
+            drawLeftPanel();
+            requestAnimationFrame(mainLoop);
+        });
+    </script>
+</body>
+</html>
